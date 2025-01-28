@@ -60,13 +60,14 @@ export function useCustomerDataBase() {
         }
     }
 
-    async function getAll() {    
+    async function getAll(limit = 10, offset = 0) {
         try {
-            const query = "SELECT * FROM customers"
-            const response = await database.getAllAsync<CustomerDataBase>(query);
-            return response
+            const query = "SELECT * FROM customers LIMIT $limit OFFSET $offset";
+            const response = await database.getAllAsync<CustomerDataBase>(query, { $limit: limit, $offset: offset });
+            return response;
         } catch (error) {
-            console.error(error)
+            console.error(error);
+            return [];
         }
     }
 

@@ -1,5 +1,12 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, StyleSheet, FlatList, Image } from "react-native";
+import React, { useCallback, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  Image,
+  ActivityIndicator,
+} from "react-native";
 import {
   CustomerDataBase,
   useCustomerDataBase,
@@ -7,23 +14,54 @@ import {
 import { useFocusEffect } from "expo-router";
 
 export default function Home() {
-  const [customers, setCustomers] = useState<CustomerDataBase[]>([]);
   const customerDataBase = useCustomerDataBase();
 
-  async function handleGetCustomers() {
+  const [customers, setCustomers] = useState<CustomerDataBase[]>([]);
+  const [page, setPage] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+
+  const ITEMS_PER_PAGE = 4;
+
+  async function fetchCustomers(newPage = 0, reset = false) {
+    if (isLoading) return;
+    setIsLoading(true);
+
     try {
-      const response = await customerDataBase.getAll();
-      setCustomers(response || []);
+      const newCustomers = await customerDataBase.getAll(
+        ITEMS_PER_PAGE,
+        newPage * ITEMS_PER_PAGE
+      );
+
+      if (newCustomers.length < ITEMS_PER_PAGE) {
+        setHasMore(false);
+      }
+
+      setCustomers((prev) =>
+        reset ? newCustomers : [...prev, ...newCustomers]
+      );
+      setPage(newPage);
     } catch (error) {
-      console.log(error);
+      console.error(error);
+    } finally {
+      setIsLoading(false);
     }
   }
 
   useFocusEffect(
     useCallback(() => {
-      handleGetCustomers();
+      setCustomers([]);
+      setPage(0);
+      setHasMore(true);
+      fetchCustomers(0, true);
     }, [])
   );
+
+  const handleLoadMore = () => {
+    if (!isLoading && hasMore) {
+      fetchCustomers(page + 1);
+    }
+  };
 
   return (
     <FlatList
@@ -57,6 +95,17 @@ export default function Home() {
         );
       }}
       contentContainerStyle={styles.lista}
+      onEndReached={handleLoadMore}
+      onEndReachedThreshold={0.2}
+      ListFooterComponent={
+        isLoading ? (
+          <ActivityIndicator
+            size="large"
+            color="#0000ff"
+            style={styles.spinner}
+          />
+        ) : null
+      }
     />
   );
 }
@@ -85,5 +134,8 @@ const styles = StyleSheet.create({
   },
   lista: {
     marginTop: 20,
+  },
+  spinner: {
+    marginVertical: 20,
   },
 });
